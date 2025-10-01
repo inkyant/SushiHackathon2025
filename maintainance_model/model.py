@@ -6,39 +6,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, TensorDataset
 
-# Load CSV data
-df = pd.read_csv('engine_data.csv')
-
-# Features and target
-X = df[['Engine rpm', 'Lub oil pressure', 'Fuel pressure', 'Coolant pressure', 'lub oil temp', 'Coolant temp']].values
-y = df['Engine Condition'].values
-
-# Split into train and test datasets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=3)
-
-# Scale the features
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
-
-# Convert to torch tensors
-X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
-y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
-
-# Create data loaders
-train_data = TensorDataset(X_train_tensor, y_train_tensor)
-test_data = TensorDataset(X_test_tensor, y_test_tensor)
-
-train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
-test_loader = DataLoader(test_data, batch_size=64, shuffle=False)
-
-
-class SimpleNN(nn.Module):
-    def __init__(self, input_size):
-        super(SimpleNN, self).__init__()
-        self.fc1 = nn.Linear(input_size, 128)
+class MaintananceNN(nn.Module):
+    def __init__(self):
+        super(MaintananceNN, self).__init__()
+        self.fc1 = nn.Linear(6, 128)
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, 32)
@@ -57,66 +28,86 @@ class SimpleNN(nn.Module):
         x = self.fc5(x)
         return x
 
-# Hyperparameters
-input_size = X_train.shape[1]
 
-model = SimpleNN(input_size=input_size)
+if __name__ == "__main__":
+    df = pd.read_csv('engine_data.csv')
 
-criterion = nn.BCEWithLogitsLoss()
+    X = df[['Engine rpm', 'Lub oil pressure', 'Fuel pressure', 'Coolant pressure', 'lub oil temp', 'Coolant temp']].values
+    y = df['Engine Condition'].values
 
-# optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-optimizer = optim.Adam(model.parameters(), lr=0.005)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=3)
 
-num_epochs = 100
+    X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+    X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
+    y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
+    y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
 
-sig = nn.Sigmoid()
+    train_data = TensorDataset(X_train_tensor, y_train_tensor)
+    test_data = TensorDataset(X_test_tensor, y_test_tensor)
 
-for epoch in range(num_epochs):
-    model.train()
-    running_loss = 0.0
+    train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
+    test_loader = DataLoader(test_data, batch_size=64, shuffle=False)
 
+
+    model = MaintananceNN()
+
+    criterion = nn.BCEWithLogitsLoss()
+
+    # optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    optimizer = optim.Adam(model.parameters(), lr=0.005)
+
+    num_epochs = 100
+
+    sig = nn.Sigmoid()
+
+    for epoch in range(num_epochs):
+        model.train()
+        running_loss = 0.0
+
+        correct = 0
+        total = 0
+        for inputs, labels in train_loader:
+            optimizer.zero_grad()  # Zero the gradients
+            
+            # Forward pass
+            outputs = model(inputs)
+            loss = criterion(outputs.squeeze(), labels)
+            
+            # Backward pass and optimization
+            loss.backward()
+            optimizer.step()
+            
+            running_loss += loss.item()
+            
+            predicted = torch.round(sig(outputs)).squeeze()
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+        train_acc = 100* correct/total
+        
+        correct = 0
+        total = 0
+        model.eval() 
+        with torch.no_grad():
+            for inputs, labels in test_loader:
+                outputs = sig(model(inputs))
+                predicted = torch.round(outputs).squeeze()
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader):.4f}, Train Acc: {train_acc:.1f}, Test Acc: {100 * correct / total:.1f}")
+
+    model.eval()
     correct = 0
     total = 0
-    for inputs, labels in train_loader:
-        optimizer.zero_grad()  # Zero the gradients
-        
-        # Forward pass
-        outputs = model(inputs)
-        loss = criterion(outputs.squeeze(), labels)
-        
-        # Backward pass and optimization
-        loss.backward()
-        optimizer.step()
-        
-        running_loss += loss.item()
-        
-        predicted = torch.round(sig(outputs)).squeeze()
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
 
-    train_acc = 100* correct/total
-    
-    correct = 0
-    total = 0
-    model.eval() 
     with torch.no_grad():
         for inputs, labels in test_loader:
             outputs = sig(model(inputs))
             predicted = torch.round(outputs).squeeze()
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-    print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader):.4f}, Train Acc: {train_acc:.1f}, Test Acc: {100 * correct / total:.1f}")
 
-model.eval()
-correct = 0
-total = 0
+    accuracy = 100 * correct / total
+    print(f'Accuracy on test data: {accuracy}%')
 
-with torch.no_grad():
-    for inputs, labels in test_loader:
-        outputs = sig(model(inputs))
-        predicted = torch.round(outputs).squeeze()
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
-
-accuracy = 100 * correct / total
-print(f'Accuracy on test data: {accuracy}%')
+    torch.save(model.state_dict(), "model.pt")
