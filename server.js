@@ -17,9 +17,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'client/build')));
 
-// Simple reverse proxy to Flask LLM backend (default localhost:5000)
+// Simple reverse proxy to Flask LLM backend (default localhost:7001)
 const FLASK_HOST = process.env.FLASK_HOST || 'localhost';
-const FLASK_PORT = Number(process.env.FLASK_PORT || 5000);
+const FLASK_PORT = Number(process.env.FLASK_PORT || process.env.LLM_PORT || 7001);
 
 function forwardToFlask(req, res, targetPath) {
   try {
@@ -49,7 +49,13 @@ function forwardToFlask(req, res, targetPath) {
     });
 
     proxyReq.on('error', (err) => {
-      res.status(503).json({ error: 'LLM backend unavailable', details: err.message });
+      console.error(`[Proxy Error] Failed to connect to Flask LLM backend at ${FLASK_HOST}:${FLASK_PORT}`);
+      console.error(`[Proxy Error] Details: ${err.message}`);
+      res.status(503).json({ 
+        error: 'LLM backend unavailable', 
+        details: err.message,
+        backend_url: `http://${FLASK_HOST}:${FLASK_PORT}${targetPath}`
+      });
     });
 
     if (payload) {
@@ -332,6 +338,7 @@ server.listen(PORT, () => {
   console.log('='.repeat(60));
   console.log(`Server running on port ${PORT}`);
   console.log(`WebSocket ready for real-time sensor data`);
+  console.log(`Proxying LLM requests to http://${FLASK_HOST}:${FLASK_PORT}`);
   console.log(`Open http://localhost:${PORT} to view dashboard`);
   console.log('='.repeat(60));
 });

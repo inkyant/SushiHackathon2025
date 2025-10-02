@@ -58,6 +58,9 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 
+export LLM_PORT=${LLM_PORT:-7001}
+export FLASK_PORT=$LLM_PORT
+
 npm run dev &
 NPM_PID=$!
 

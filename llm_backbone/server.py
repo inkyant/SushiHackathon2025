@@ -260,4 +260,13 @@ def health():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("LLM_PORT", os.environ.get("PORT", 7001)))
+    host = os.environ.get("LLM_HOST", "0.0.0.0")
+    print("=" * 60)
+    print("🤖 LLM BACKBONE SERVER")
+    print("=" * 60)
+    print(f"Starting Flask LLM server on {host}:{port}")
+    print(f"Sonar detection available: {detect_on_image is not None}")
+    print(f"Maintenance model available: {get_engine_fault is not None}")
+    print("=" * 60)
+    app.run(debug=True, host=host, port=port)

@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import './ChatWindow.css';
 
 function ChatWindow({ isOpen, onClose, sensorData, anomalies, embedded = false }) {
-  const API_BASE = process.env.REACT_APP_API_BASE ?? '';
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -57,7 +56,7 @@ function ChatWindow({ isOpen, onClose, sensorData, anomalies, embedded = false }
         anomalies: anomalies || []
       };
 
-      const response = await fetch(`${API_BASE}/mm_infer`, {
+      const response = await fetch(`http://127.0.0.1:7001/mm_infer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
