@@ -54,11 +54,41 @@ def get_engine_fault(engine_stats, model=None):
     return label, confidence, probs_np
 
 
-if __name__ == "__main__":
+from flask import Flask, request, jsonify
+from flask_cors import CORS  # Import CORS
+
+app = Flask(__name__)
+
+# Enable CORS for all routes
+CORS(app)
+
+@app.route('/calculate', methods=['POST'])
+def calculate():
+    # Get the JSON data from the request
+    data = request.get_json()
+    
+    # Check if the data contains exactly six numbers
+    if len(data) != 6:
+        return jsonify({"result": 0}), 400
+
+    # Ensure the data contains valid numbers
+    try:
+        numbers = [float(num) for num in data]
+    except ValueError:
+        return jsonify({"result": 0}), 400
+    
+    result, a, b = get_engine_fault(numbers)
+    
+    # Return the result as a JSON response
+    return jsonify({"result": result})
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
     # Example input: Engine rpm, Lub oil pressure, Fuel pressure, Coolant pressure, lub oil temp, Coolant temp
-    d = [791.23, 3.30, 4.65, 2.33, 77.64, -78.42]
-    model = load_model()
-    label, confidence, probs = get_engine_fault(d, model)
-    print(f"Predicted fault: {label}")
-    print(f"Confidence: {confidence:.3f}")
-    print(f"All probabilities: {probs}")
+    # d = [791.23, 3.30, 4.65, 2.33, 77.64, -78.42]
+    # model = load_model()
+    # label, confidence, probs = get_engine_fault(d, model)
+    # print(f"Predicted fault: {label}")
+    # print(f"Confidence: {confidence:.3f}")
+    # print(f"All probabilities: {probs}")

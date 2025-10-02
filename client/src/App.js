@@ -212,11 +212,56 @@ function App() {
                             ...sensorData,
                             engine: {
                               ...sensorData.engine,
+                              rpm: test_data[0],
+                              temperature: test_data[4],
+                              oilPressure: test_data[2],
+                              status: data.result === 0 ? "Normal" : "Error!"
+                            },
+                            fuel: {
+                              ...sensorData.fuel,
+                              consumptionRate: 2.5,
+                              level: 75
+                            },
+                            electrical: {
+                              ...sensorData.electrical,
+                              batteryVoltage: 13.8,
+                              amperage: 22.5
+                            },
+                            navigation: {
+                              ...sensorData.navigation,
+                              speed: 12.3,
+                              heading: 270,
+                              depth: 33.2,
+                              gps: {
+                                latitude: 37.7749,
+                                longitude: -122.4194
+                              }
+                            },
+                            resonance: {
+                              ...sensorData.resonance,
+                              propeller: 80,
+                              engine: 120,
+                              hull: 60
+                            },
+                            timestamp: Date.now(),
+                            sonar: {
+                              ...sensorData.sonar,
+                              fishDetected: false,
+                              fishDepth: null,
+                              fishSize: null
+                            }
+                          });
+                        }).catch((e) => {
+                          console.log("error!", e)
+                          setSensorData({
+                            ...sensorData,
+                            engine: {
+                              ...sensorData.engine,
                               rpm: 1800,
                               temperature: 85,
                               oilPressure: 45,
                               runHours: 123.4,
-                              status: data.result === 0 ? "Normal" : "Error!"
+                              status: "Normal"
                             },
                             fuel: {
                               ...sensorData.fuel,
@@ -255,7 +300,7 @@ function App() {
                         });
                     }}
                   >
-                    Inject Test Data
+                    Simulate Fault
                   </button>
                 </div>
               </div>
