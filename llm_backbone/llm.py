@@ -16,12 +16,17 @@ from transformers import AutoModelForImageTextToText, AutoProcessor
 
 
 class LLMBackbone:
-    def __init__(self, model_name="Qwen/Qwen3-VL-235B-A22B-Instruct"):
+    def __init__(self, model_name=None):
         # Load the Qwen-VL model and processor
-        self.model = AutoModelForImageTextToText.from_pretrained(
-            model_name, dtype="auto", device_map="auto"
+        import os
+
+        selected = model_name or os.getenv(
+            "LLM_MODEL_NAME", "Qwen/Qwen2-VL-7B-Instruct"
         )
-        self.processor = AutoProcessor.from_pretrained(model_name)
+        self.model = AutoModelForImageTextToText.from_pretrained(
+            selected, dtype="auto", device_map="auto"
+        )
+        self.processor = AutoProcessor.from_pretrained(selected)
         self.system_prompt = self._load_system_prompt()
 
     def _load_system_prompt(self):

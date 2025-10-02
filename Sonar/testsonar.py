@@ -6,12 +6,24 @@ from typing import List, Dict, Any, Optional, Tuple
 MODEL_PATH = "FineTunedSonar.pt"
 
 
+def _auto_device() -> Optional[int]:
+    """Return a device index for CUDA if available, otherwise None to use CPU. On Apple silicon with MPS, YOLO will select automatically."""
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            return 0
+    except Exception:
+        pass
+    return None
+
+
 def detect_on_image(
     image_path: str,
     model_path: str = MODEL_PATH,
     imgsz: int = 640,
     conf: float = 0.25,
-    device: Optional[int] = 0,
+    device: Optional[int] = None,
     save_annotated_to: Optional[str] = None,
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """
@@ -25,8 +37,9 @@ def detect_on_image(
         raise FileNotFoundError(f"Image not found: {image_path}")
 
     model = YOLO(model_path)
+    device_index = device if device is not None else _auto_device()
     results = model.predict(
-        source=image_path, device=device, imgsz=imgsz, conf=conf, verbose=False
+        source=image_path, device=device_index, imgsz=imgsz, conf=conf, verbose=False
     )
     r0 = results[0]
 
@@ -67,7 +80,7 @@ def detect_on_video(
     model_path: str = MODEL_PATH,
     imgsz: int = 640,
     conf: float = 0.25,
-    device: Optional[int] = 0,
+    device: Optional[int] = None,
 ) -> str:
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
@@ -90,8 +103,9 @@ def detect_on_video(
         ok, frame = cap.read()
         if not ok:
             break
+        device_index = device if device is not None else _auto_device()
         results = model.predict(
-            source=frame, device=device, imgsz=imgsz, conf=conf, verbose=False
+            source=frame, device=device_index, imgsz=imgsz, conf=conf, verbose=False
         )
         annotated = results[0].plot()
         writer.write(annotated)

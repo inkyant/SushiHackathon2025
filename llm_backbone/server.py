@@ -13,6 +13,13 @@ from flask import Flask, request, jsonify
 from llm import LLMBackbone
 from importlib import import_module
 import json
+import os
+import sys
+
+# Ensure project root is on sys.path so imports like `Sonar.*` work when running this file directly
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 # Lazy import sonar helper to avoid heavy load at startup
 try:
@@ -128,6 +135,42 @@ def mm_infer():
             ),
             "sonar": sonar_info,
             "engine": maint_info,
+        }
+    )
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    """Lightweight health check for core components."""
+    sonar_ok = detect_on_image is not None
+    maint_ok = get_engine_fault is not None
+    # Check weight file existence (best-effort)
+    sonar_weights = None
+    try:
+        # Import inside to avoid hard dependency if module missing
+        from Sonar.testsonar import MODEL_PATH as SONAR_MODEL
+
+        sonar_weights = os.path.join(PROJECT_ROOT, "Sonar", SONAR_MODEL)
+    except Exception:
+        pass
+    maint_weights = os.path.join(
+        PROJECT_ROOT, "maintainance_model", "multiclass_model.pt"
+    )
+
+    return jsonify(
+        {
+            "status": "ok",
+            "components": {
+                "llm_loaded": True,
+                "sonar_helper_available": sonar_ok,
+                "maint_helper_available": maint_ok,
+            },
+            "weights": {
+                "sonar_present": (
+                    os.path.exists(sonar_weights) if sonar_weights else False
+                ),
+                "maint_present": os.path.exists(maint_weights),
+            },
         }
     )
 

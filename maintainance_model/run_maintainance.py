@@ -1,7 +1,7 @@
-
 import torch
 from torch.nn import Softmax
 from model import MaintananceNN
+import os
 
 # Define your class labels in the order your model outputs them
 CLASS_LABELS = [
@@ -15,14 +15,26 @@ CLASS_LABELS = [
     "Coolant pressure too low",
     "Coolant pressure too high",
     "Lub oil temp abnormal",
-    "Coolant temp abnormal"
+    "Coolant temp abnormal",
 ]
+
 
 def load_model(model_path="multiclass_model.pt"):
     model = MaintananceNN()
-    model.load_state_dict(torch.load(model_path, weights_only=True))
+    # Resolve path relative to this file's directory if not absolute
+    if not os.path.isabs(model_path):
+        here = os.path.dirname(__file__)
+        candidate = os.path.join(here, model_path)
+        model_path = candidate if os.path.exists(candidate) else model_path
+    # Fallback: try loading without weights_only for older torch
+    try:
+        state = torch.load(model_path, weights_only=True)
+    except TypeError:
+        state = torch.load(model_path)
+    model.load_state_dict(state)
     model.eval()
     return model
+
 
 def get_engine_fault(engine_stats, model=None):
     """
@@ -40,6 +52,7 @@ def get_engine_fault(engine_stats, model=None):
         label = CLASS_LABELS[idx]
         confidence = probs_np[idx]
     return label, confidence, probs_np
+
 
 if __name__ == "__main__":
     # Example input: Engine rpm, Lub oil pressure, Fuel pressure, Coolant pressure, lub oil temp, Coolant temp
