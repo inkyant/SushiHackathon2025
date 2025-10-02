@@ -17,7 +17,16 @@ fi
 
 echo "✓ Node.js detected: $(node --version)"
 echo ""
+# Ensure Flask and flask-cors are installed for Python components
+if ! python -c "import flask" &> /dev/null; then
+    echo "📦 Installing Flask for Python..."
+    pip install flask
+fi
 
+if ! python -c "import flask_cors" &> /dev/null; then
+    echo "📦 Installing flask-cors for Python..."
+    pip install flask-cors
+fi
 # Install dependencies if needed
 if [ ! -d "node_modules" ]; then
     echo "📦 Installing server dependencies..."

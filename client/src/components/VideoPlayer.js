@@ -127,33 +127,17 @@ function VideoPlayer({
     { x: 65, y: 55, width: 12, height: 15, confidence: 0.87, label: 'Fish' }
   ] : [];
 
-  // Embedded mode - render video directly without modal
+  // Embedded mode - render video directly without modal (just loop out.mp4)
   if (embedded) {
     return (
-      <div className="video-container-embedded" onClick={handleVideoClick}>
-        {/* Default Video */}
+      <div className="video-container-embedded">
         <video
-          ref={videoRef}
           src={videoUrl}
-          controls
+          autoPlay
+          loop
           playsInline
-          preload="auto"
-          loop={playbackStage === 2}
-          onEnded={handleDefaultVideoEnd}
-          className={`sonar-video-embedded ${videoMode === 'default' ? 'active' : 'inactive'}`}
-        >
-          Your browser does not support video playback.
-        </video>
-
-        {/* Annotated Video */}
-        <video
-          ref={annotatedVideoRef}
-          src={annotatedVideoUrl}
-          controls
-          playsInline
-          preload="auto"
-          onEnded={handleAnnotatedVideoEnd}
-          className={`sonar-video-embedded annotated ${videoMode === 'annotated' ? 'active' : 'inactive'}`}
+          muted
+          className="sonar-video-embedded"
         >
           Your browser does not support video playback.
         </video>
@@ -222,9 +206,9 @@ function VideoPlayer({
               <video
                 ref={videoRef}
                 src={videoUrl}
-                controls
                 playsInline
                 preload="auto"
+                muted
                 loop={playbackStage === 2}
                 onEnded={handleDefaultVideoEnd}
                 className={`sonar-video ${videoMode === 'default' ? 'active' : 'inactive'}`}
@@ -236,9 +220,9 @@ function VideoPlayer({
               <video
                 ref={annotatedVideoRef}
                 src={annotatedVideoUrl}
-                controls
                 playsInline
                 preload="auto"
+                muted
                 onEnded={handleAnnotatedVideoEnd}
                 className={`sonar-video annotated ${videoMode === 'annotated' ? 'active' : 'inactive'}`}
               >
