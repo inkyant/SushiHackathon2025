@@ -49,4 +49,4 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # Start the server and client concurrently
-npm run dev
+npm run dev & python ./maintainance_model/run_maintainance.py
