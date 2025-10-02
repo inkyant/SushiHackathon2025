@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './ChatWindow.css';
 
 function ChatWindow({ isOpen, onClose, sensorData, anomalies, embedded = false }) {
+  const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -34,25 +35,62 @@ function ChatWindow({ isOpen, onClose, sensorData, anomalies, embedded = false }
     setInput('');
     setIsLoading(true);
 
-    // Placeholder for backend chat API
-    // In the future, this will call your LLM model with context
+    // Call backend multimodal inference API with structured context
     try {
-      const response = await fetch('/api/chat', {
+      // Derive engine_stats array expected by backend maintenance model
+      const engine_stats = [
+        // Engine rpm, Lub oil pressure, Fuel pressure, Coolant pressure, lub oil temp, Coolant temp
+        Number(sensorData?.engine?.rpm ?? 0),
+        Number(sensorData?.engine?.oilPressure ?? 0),
+        Number(sensorData?.fuel?.pressure ?? 0),
+        Number(sensorData?.engine?.coolantPressure ?? 0),
+        Number(sensorData?.engine?.oilTemp ?? sensorData?.engine?.temperature ?? 0),
+        Number(sensorData?.engine?.coolantTemp ?? sensorData?.engine?.temperature ?? 0)
+      ];
+
+      const context = {
+        location: sensorData?.navigation?.gps || null,
+        water_body: 'unknown',
+        datetime: new Date(sensorData?.timestamp || Date.now()).toISOString(),
+        season: 'unknown',
+        temperature: sensorData?.engine?.temperature ?? null,
+        anomalies: anomalies || []
+      };
+
+      const response = await fetch(`${API_BASE}/mm_infer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: input,
-          context: {
-            sensorData,
-            anomalies
-          }
+          image_path: sensorData?.sonar?.imagePath || null,
+          engine_stats,
+          context,
+          user_prompt: input,
+          save_annotated_to: sensorData?.sonar?.annotatedOutputPath || null,
+          sensor_data: sensorData,
+          anomalies
         })
       });
 
-      let contentText = 'Backend model integration pending. This is a placeholder response.';
+      let contentText = 'Awaiting backend response...';
       try {
         const data = await response.json();
-        contentText = data.response || contentText;
+        if (data && typeof data === 'object') {
+          const llmText = data.llm_output || data.output || null;
+          const sonarCounts = data?.sonar?.counts_by_class;
+          const engineDiag = data?.engine?.diagnosis;
+          const engineConf = data?.engine?.confidence;
+
+          const parts = [];
+          if (llmText) parts.push(String(llmText));
+          if (engineDiag) parts.push(`\n\nEngine: ${engineDiag}${typeof engineConf === 'number' ? ` (${(engineConf * 100).toFixed(1)}%)` : ''}`);
+          if (sonarCounts && typeof sonarCounts === 'object') {
+            const summary = Object.entries(sonarCounts)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(', ');
+            parts.push(`\n\nSonar: ${summary}`);
+          }
+          contentText = parts.join('');
+        }
       } catch (e) {
         // ignore JSON parse errors; keep contentText default
       }

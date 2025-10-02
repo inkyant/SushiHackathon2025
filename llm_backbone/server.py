@@ -10,6 +10,12 @@ with a clean API facing the frontend.
 """
 
 from flask import Flask, request, jsonify
+
+try:
+    # Optional CORS for local dev from CRA (port 3000)
+    from flask_cors import CORS  # type: ignore
+except Exception:
+    CORS = None  # type: ignore
 from importlib import import_module
 import json
 import os
@@ -36,19 +42,10 @@ except Exception:
     get_engine_fault = None
 
 app = Flask(__name__)
+if CORS is not None:
+    CORS(app)
 
-# Select LLM provider based on environment
-# LLM_PROVIDER=openai or USE_OPENAI=1|true|yes selects OpenAI; otherwise defaults to custom llm.
-try:
-    provider = (os.getenv("LLM_PROVIDER") or os.getenv("LLM_BACKEND") or "").lower()
-    use_openai_env = os.getenv("USE_OPENAI", "").lower() in ("1", "true", "yes", "on")
-    if provider in ("openai", "openai_api", "openai-bridge") or use_openai_env:
-        from openai_bridge import LLMBackbone as SelectedLLMBackbone  # type: ignore
-    else:
-        from llm import LLMBackbone as SelectedLLMBackbone  # type: ignore
-except Exception:
-    # Fallback to custom llm if selection fails
-    from llm import LLMBackbone as SelectedLLMBackbone  # type: ignore
+from openai_bridge import LLMBackbone as SelectedLLMBackbone  # type: ignore
 
 llm = SelectedLLMBackbone()
 
@@ -82,6 +79,43 @@ def mm_infer():
     context = data.get("context", {})
     save_annotated_to = data.get("save_annotated_to")
     user_prompt = data.get("user_prompt")
+    sensor_data = data.get("sensor_data") or {}
+    anomalies = data.get("anomalies") or []
+
+    # If no explicit image_path, try to infer from sensor_data
+    if not image_path and isinstance(sensor_data, dict):
+        try:
+            image_path = sensor_data.get("sonar", {}).get(
+                "imagePath"
+            ) or sensor_data.get("sonar", {}).get("image_path")
+        except Exception:
+            image_path = None
+
+    # If engine_stats are not provided or malformed, attempt derivation from sensor_data
+    def _num(x):
+        try:
+            return float(x)
+        except Exception:
+            return 0.0
+
+    if not (isinstance(engine_stats, list) and len(engine_stats) == 6):
+        eng = (
+            (sensor_data or {}).get("engine", {})
+            if isinstance(sensor_data, dict)
+            else {}
+        )
+        fuel = (
+            (sensor_data or {}).get("fuel", {}) if isinstance(sensor_data, dict) else {}
+        )
+        # Expected order: rpm, oilP, fuelP, coolP, oilT, coolT
+        engine_stats = [
+            _num(eng.get("rpm", 0)),
+            _num(eng.get("oilPressure", 0)),
+            _num(fuel.get("pressure", 0)),
+            _num(eng.get("coolantPressure", 0)),
+            _num(eng.get("oilTemp", eng.get("temperature", 0))),
+            _num(eng.get("coolantTemp", eng.get("temperature", 0))),
+        ]
 
     sonar_info = {}
     annotated_image = None
@@ -120,6 +154,43 @@ def mm_infer():
     ctx_lines = []
     if context:
         ctx_lines.append(f"Context: {json.dumps(context)}")
+    # Include anomaly summary if provided
+    if anomalies:
+        try:
+            summary = [
+                {
+                    "type": a.get("type"),
+                    "severity": a.get("severity"),
+                    "value": a.get("value"),
+                }
+                for a in (anomalies if isinstance(anomalies, list) else [])
+            ]
+            ctx_lines.append(f"Anomalies: {json.dumps(summary)}")
+        except Exception:
+            pass
+    # Include compact sensor snapshot
+    if isinstance(sensor_data, dict) and sensor_data:
+        try:
+            snapshot = {
+                "engine": {
+                    "rpm": (sensor_data.get("engine", {}) or {}).get("rpm"),
+                    "oilPressure": (sensor_data.get("engine", {}) or {}).get(
+                        "oilPressure"
+                    ),
+                    "temperature": (sensor_data.get("engine", {}) or {}).get(
+                        "temperature"
+                    ),
+                },
+                "navigation": {
+                    "speed": (sensor_data.get("navigation", {}) or {}).get("speed"),
+                    "heading": (sensor_data.get("navigation", {}) or {}).get("heading"),
+                    "depth": (sensor_data.get("navigation", {}) or {}).get("depth"),
+                    "gps": (sensor_data.get("navigation", {}) or {}).get("gps"),
+                },
+            }
+            ctx_lines.append(f"Sensors: {json.dumps(snapshot)}")
+        except Exception:
+            pass
     if sonar_info:
         sonar_ctx = {k: v for k, v in sonar_info.items() if k != "detections"}
         ctx_lines.append(f"Sonar summary: {json.dumps(sonar_ctx)}")
