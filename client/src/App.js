@@ -28,16 +28,16 @@ function App() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      setSensorData(data.sensorData);
-      setAnomalies(data.anomalies);
-      setAiStatus(data.aiStatus);
+      // setSensorData(data.sensorData);
+      // setAnomalies(data.anomalies);
+      // setAiStatus(data.aiStatus);
 
       // Fish alert - auto-open sonar video
-      if (data.sensorData.sonar.fishDetected) {
-        setFishAlert(true);
-        setSonarVideoOpen(true);
-        setTimeout(() => setFishAlert(false), 3000);
-      }
+      // if (data.sensorData.sonar.fishDetected) {
+      //   setFishAlert(true);
+      //   setSonarVideoOpen(true);
+      //   setTimeout(() => setFishAlert(false), 3000);
+      // }
     };
 
     ws.onclose = () => {
@@ -155,20 +155,73 @@ function App() {
           <div className="dashboard-grid">
 
         {/* Engine Panel - Top (Consolidated with 6 gauges) */}
-        <div className="panel panel-engine panel-large">
-          <div className="panel-header">
-            <h2>ENGINE SYSTEMS</h2>
-            <div className="panel-header-actions">
-              <span className={`status-badge ${sensorData.engine.status}`}>
-                {sensorData.engine.status.toUpperCase()}
-              </span>
-              <button className="expand-btn" onClick={() => handleExpandPanel('ENGINE SYSTEMS', renderEngineContent())}>
-                ⛶
-              </button>
+          <div className="panel panel-engine panel-large">
+            <div className="panel-header">
+              <h2>ENGINE SYSTEMS</h2>
+              <div className="panel-header-actions">
+                <span className={`status-badge ${sensorData.engine.status}`}>
+            {sensorData.engine.status.toUpperCase()}
+                </span>
+                <button className="expand-btn" onClick={() => handleExpandPanel('ENGINE SYSTEMS', renderEngineContent())}>
+            ⛶
+                </button>
+                {/* Test Data Button */}
+                <button
+            className="test-data-btn"
+            style={{ marginLeft: '8px', padding: '4px 10px', fontSize: '0.95em' }}
+            onClick={() => {
+              setSensorData({
+                ...sensorData,
+                engine: {
+                  ...sensorData.engine,
+                  rpm: 1800,
+                  temperature: 85,
+                  oilPressure: 45,
+                  runHours: 123.4,
+                  status: 'testing'
+                },
+                fuel: {
+                  ...sensorData.fuel,
+                  consumptionRate: 2.5,
+                  level: 75
+                },
+                electrical: {
+                  ...sensorData.electrical,
+                  batteryVoltage: 13.8,
+                  amperage: 22.5
+                },
+                navigation: {
+                  ...sensorData.navigation,
+                  speed: 12.3,
+                  heading: 270,
+                  depth: 33.2,
+                  gps: {
+              latitude: 37.7749,
+              longitude: -122.4194
+                  }
+                },
+                resonance: {
+                  ...sensorData.resonance,
+                  propeller: 80,
+                  engine: 120,
+                  hull: 60
+                },
+                timestamp: Date.now(),
+                sonar: {
+                  ...sensorData.sonar,
+                  fishDetected: false,
+                  fishDepth: null,
+                  fishSize: null
+                }
+              });
+            }}
+                >
+            Inject Test Data
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="gauge-group gauge-group-six">
-            {/* Row 1: RPM, Fuel Flow, Coolant Temp */}
+            <div className="gauge-group gauge-group-six">
+              {/* Row 1: RPM, Fuel Flow, Coolant Temp */}
             <div className="gauge">
               <svg viewBox="0 0 200 120" className="gauge-svg">
                 <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
