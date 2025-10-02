@@ -40,11 +40,52 @@ class LLMBackbone:
             os.environ.setdefault("HUGGING_FACE_HUB_TOKEN", hf_token)
 
         self.hf_token = hf_token
+
+        # Determine precision and device mapping to reduce memory footprint
+        requested_dtype = (os.getenv("LLM_TORCH_DTYPE", "auto") or "auto").lower()
+        if requested_dtype in ("bf16", "bfloat16"):
+            chosen_dtype = torch.bfloat16
+        elif requested_dtype in ("fp16", "float16", "half"):
+            chosen_dtype = torch.float16
+        elif requested_dtype in ("fp32", "float32", "full"):
+            chosen_dtype = torch.float32
+        else:
+            # Auto-select: prefer lower precision on GPU/MPS, default fp32 on CPU
+            if (
+                torch.cuda.is_available()
+                or getattr(torch.backends, "mps", None)
+                and torch.backends.mps.is_available()
+            ):
+                chosen_dtype = torch.float16
+            else:
+                chosen_dtype = torch.float32
+        self.torch_dtype = chosen_dtype
+
+        env_device_map = os.getenv("LLM_DEVICE_MAP")
+        if env_device_map:
+            device_map = env_device_map
+        else:
+            # Avoid accidental full-disk offload on machines without accelerators
+            if torch.cuda.is_available() or (
+                getattr(torch.backends, "mps", None)
+                and torch.backends.mps.is_available()
+            ):
+                device_map = "auto"
+            else:
+                device_map = "cpu"
+
+        offload_folder = os.getenv("LLM_OFFLOAD_FOLDER")
+
         # Load Gemma-3 vision model and processor
         self.model = Gemma3ForConditionalGeneration.from_pretrained(
             self.selected_model_name,
-            device_map="auto",
+            device_map=device_map,
+            torch_dtype=self.torch_dtype,
+            low_cpu_mem_usage=True,
             token=self.hf_token,
+            offload_folder=(
+                offload_folder if offload_folder and device_map != "cpu" else None
+            ),
         ).eval()
         self.processor = AutoProcessor.from_pretrained(
             self.selected_model_name,
@@ -178,7 +219,7 @@ class LLMBackbone:
             tokenize=True,
             return_dict=True,
             return_tensors="pt",
-        ).to(self.model.device, dtype=torch.bfloat16)
+        ).to(self.model.device, dtype=self.torch_dtype)
 
         input_len = inputs["input_ids"].shape[-1]
         with torch.inference_mode():

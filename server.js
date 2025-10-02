@@ -17,6 +17,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'client/build')));
 
+// Serve video files from root directory
+app.use('/out.mp4', express.static(path.join(__dirname, 'out.mp4')));
+app.use('/out_annotated.mp4', express.static(path.join(__dirname, 'out_annotated.mp4')));
+
+// Also serve from Sonar directory if needed
+app.use('/sonar', express.static(path.join(__dirname, 'Sonar')));
+
 // Mock sensor data generator
 class SensorSimulator {
   constructor() {
