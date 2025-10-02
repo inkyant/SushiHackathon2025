@@ -14,7 +14,7 @@ class MaintananceNN(nn.Module):
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, 32)
         self.fc4 = nn.Linear(32, 32)
-        self.fc5 = nn.Linear(32, 1)
+        self.fc5 = nn.Linear(32, 11)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -30,7 +30,7 @@ class MaintananceNN(nn.Module):
 
 
 if __name__ == "__main__":
-    df = pd.read_csv('engine_data.csv')
+    df = pd.read_csv('data.csv')
 
     X = df[['Engine rpm', 'Lub oil pressure', 'Fuel pressure', 'Coolant pressure', 'lub oil temp', 'Coolant temp']].values
     y = df['Engine Condition'].values
@@ -39,8 +39,8 @@ if __name__ == "__main__":
 
     X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
     X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-    y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
-    y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
+    y_train_tensor = torch.tensor(y_train, dtype=torch.long)
+    y_test_tensor = torch.tensor(y_test, dtype=torch.long)
 
     train_data = TensorDataset(X_train_tensor, y_train_tensor)
     test_data = TensorDataset(X_test_tensor, y_test_tensor)
@@ -51,14 +51,14 @@ if __name__ == "__main__":
 
     model = MaintananceNN()
 
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.CrossEntropyLoss()
 
     # optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-    optimizer = optim.Adam(model.parameters(), lr=0.005)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     num_epochs = 100
 
-    sig = nn.Sigmoid()
+    sm = nn.Softmax()
 
     for epoch in range(num_epochs):
         model.train()
@@ -67,19 +67,17 @@ if __name__ == "__main__":
         correct = 0
         total = 0
         for inputs, labels in train_loader:
-            optimizer.zero_grad()  # Zero the gradients
+            optimizer.zero_grad()
             
-            # Forward pass
             outputs = model(inputs)
-            loss = criterion(outputs.squeeze(), labels)
+            loss = criterion(outputs, labels)
             
-            # Backward pass and optimization
             loss.backward()
             optimizer.step()
             
             running_loss += loss.item()
             
-            predicted = torch.round(sig(outputs)).squeeze()
+            predicted = torch.argmax(outputs, dim=1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
@@ -90,8 +88,8 @@ if __name__ == "__main__":
         model.eval() 
         with torch.no_grad():
             for inputs, labels in test_loader:
-                outputs = sig(model(inputs))
-                predicted = torch.round(outputs).squeeze()
+                outputs = model(inputs)
+                predicted = torch.argmax(outputs, dim=1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader):.4f}, Train Acc: {train_acc:.1f}, Test Acc: {100 * correct / total:.1f}")
@@ -102,8 +100,8 @@ if __name__ == "__main__":
 
     with torch.no_grad():
         for inputs, labels in test_loader:
-            outputs = sig(model(inputs))
-            predicted = torch.round(outputs).squeeze()
+            outputs = model(inputs)
+            predicted = torch.argmax(outputs, dim=1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
