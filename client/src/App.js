@@ -65,10 +65,10 @@ function App() {
         if (Array.isArray(data.anomalies)) setAnomalies(data.anomalies);
         if (data.aiStatus) setAiStatus(data.aiStatus);
 
-        if (data.sensorData?.sonar?.fishDetected) {
-          setFishAlert(true);
-          setTimeout(() => setFishAlert(false), 3000);
-        }
+        // if (data.sensorData?.sonar?.fishDetected) {
+        //   setFishAlert(true);
+        //   setTimeout(() => setFishAlert(false), 3000);
+        // }
       } catch (err) {
         console.warn('Failed to parse WS message', err);
       }
@@ -180,200 +180,214 @@ function App() {
         {currentView === 'engine' && (
           <div className="dashboard-grid">
 
-        {/* Engine Panel - Top (Consolidated with 6 gauges) */}
-          <div className="panel panel-engine panel-large">
-            <div className="panel-header">
-              <h2>ENGINE SYSTEMS</h2>
-              <div className="panel-header-actions">
-                <span className={`status-badge ${sensorData.engine.status}`}>
-            {sensorData.engine.status.toUpperCase()}
-                </span>
-                <button className="expand-btn" onClick={() => handleExpandPanel('ENGINE SYSTEMS', renderEngineContent())}>
-            ⛶
+            {/* Engine Panel - Top (Consolidated with 6 gauges) */}
+            <div className="panel panel-engine panel-large">
+              <div className="panel-header">
+                <h2>ENGINE SYSTEMS</h2>
+                <div className="panel-header-actions">
+                  <span className={`status-badge ${sensorData.engine.status}`}>
+                    {sensorData.engine.status.toUpperCase()}
+                  </span>
+                  <button className="expand-btn" onClick={() => handleExpandPanel('ENGINE SYSTEMS', renderEngineContent())}>
+                    ⛶
+                  </button>
+                  {/* Test Data Button */}
+                  <button
+                    className="demo-trigger-btn"
+                    onClick={() => {
+                      const test_data = [791.23, 3.30, 4.65, 2.33, 77.64, 78.42]
+                      fetch('http://127.0.0.1:5000/calculate', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(test_data)
+                      })
+                        .then(response => response.json())  // Parse the JSON response
+                        .then(data => {
+                          // Handle the response
+                          console.log('Result:', data.result);  // This will log the sum (or whatever result you send back)
+
+                          setSensorData({
+                            ...sensorData,
+                            engine: {
+                              ...sensorData.engine,
+                              rpm: 1800,
+                              temperature: 85,
+                              oilPressure: 45,
+                              runHours: 123.4,
+                              status: data.result === 0 ? "Normal" : "Error!"
+                            },
+                            fuel: {
+                              ...sensorData.fuel,
+                              consumptionRate: 2.5,
+                              level: 75
+                            },
+                            electrical: {
+                              ...sensorData.electrical,
+                              batteryVoltage: 13.8,
+                              amperage: 22.5
+                            },
+                            navigation: {
+                              ...sensorData.navigation,
+                              speed: 12.3,
+                              heading: 270,
+                              depth: 33.2,
+                              gps: {
+                                latitude: 37.7749,
+                                longitude: -122.4194
+                              }
+                            },
+                            resonance: {
+                              ...sensorData.resonance,
+                              propeller: 80,
+                              engine: 120,
+                              hull: 60
+                            },
+                            timestamp: Date.now(),
+                            sonar: {
+                              ...sensorData.sonar,
+                              fishDetected: false,
+                              fishDepth: null,
+                              fishSize: null
+                            }
+                          });
+                        });
+                    }}
+                  >
+                    Inject Test Data
+                  </button>
+                </div>
+              </div>
+              <div className="gauge-group gauge-group-six">
+                {/* Row 1: RPM, Fuel Flow, Coolant Temp */}
+                <div className="gauge">
+                  <svg viewBox="0 0 200 120" className="gauge-svg">
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#00d4ff" strokeWidth="20" strokeDasharray={`${(sensorData.engine.rpm / 3000) * 251} 251`} className="gauge-progress" />
+                    <text x="100" y="80" textAnchor="middle" className="gauge-value">{Math.round(sensorData.engine.rpm)}</text>
+                    <text x="100" y="100" textAnchor="middle" className="gauge-label">RPM</text>
+                  </svg>
+                </div>
+                <div className="gauge">
+                  <svg viewBox="0 0 200 120" className="gauge-svg">
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#00ff88" strokeWidth="20" strokeDasharray={`${(sensorData.fuel.consumptionRate / 5) * 251} 251`} className="gauge-progress" />
+                    <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.fuel.consumptionRate.toFixed(1)}</text>
+                    <text x="100" y="100" textAnchor="middle" className="gauge-label">FUEL L/H</text>
+                  </svg>
+                </div>
+                <div className="gauge">
+                  <svg viewBox="0 0 200 120" className="gauge-svg">
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={getStatusColor(sensorData.engine.temperature, 60, 110, true)} strokeWidth="20" strokeDasharray={`${((sensorData.engine.temperature - 60) / 50) * 251} 251`} className="gauge-progress" />
+                    <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.engine.temperature.toFixed(1)}</text>
+                    <text x="100" y="100" textAnchor="middle" className="gauge-label">COOLANT</text>
+                  </svg>
+                </div>
+                {/* Row 2: Oil Pressure, Battery, Run Hours */}
+                <div className="gauge">
+                  <svg viewBox="0 0 200 120" className="gauge-svg">
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={getStatusColor(sensorData.engine.oilPressure, 20, 60)} strokeWidth="20" strokeDasharray={`${(sensorData.engine.oilPressure / 60) * 251} 251`} className="gauge-progress" />
+                    <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.engine.oilPressure.toFixed(1)}</text>
+                    <text x="100" y="100" textAnchor="middle" className="gauge-label">OIL PSI</text>
+                  </svg>
+                </div>
+                <div className="gauge">
+                  <svg viewBox="0 0 200 120" className="gauge-svg">
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={getStatusColor(sensorData.electrical.batteryVoltage, 12, 15)} strokeWidth="20" strokeDasharray={`${((sensorData.electrical.batteryVoltage - 12) / 3) * 251} 251`} className="gauge-progress" />
+                    <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.electrical.batteryVoltage.toFixed(1)}</text>
+                    <text x="100" y="100" textAnchor="middle" className="gauge-label">BATTERY V</text>
+                  </svg>
+                </div>
+                <div className="gauge">
+                  <svg viewBox="0 0 200 120" className="gauge-svg">
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#00d4ff" strokeWidth="20" strokeDasharray="251 251" className="gauge-progress" />
+                    <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.engine.runHours.toFixed(1)}</text>
+                    <text x="100" y="100" textAnchor="middle" className="gauge-label">RUN HOURS</text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Smaller Panels - Reordered */}
+            <div className="panel panel-small panel-ai">
+              <div className="panel-header">
+                <h2>AI STATUS</h2>
+                <button className="expand-btn" onClick={() => handleExpandPanel('AI DIAGNOSTICS', renderAIContent())}>
+                  ⛶
                 </button>
-                {/* Test Data Button */}
-                <button
-            className="demo-trigger-btn"
-            onClick={() => {
-              setSensorData({
-                ...sensorData,
-                engine: {
-                  ...sensorData.engine,
-                  rpm: 1800,
-                  temperature: 85,
-                  oilPressure: 45,
-                  runHours: 123.4,
-                  status: 'testing'
-                },
-                fuel: {
-                  ...sensorData.fuel,
-                  consumptionRate: 2.5,
-                  level: 75
-                },
-                electrical: {
-                  ...sensorData.electrical,
-                  batteryVoltage: 13.8,
-                  amperage: 22.5
-                },
-                navigation: {
-                  ...sensorData.navigation,
-                  speed: 12.3,
-                  heading: 270,
-                  depth: 33.2,
-                  gps: {
-              latitude: 37.7749,
-              longitude: -122.4194
-                  }
-                },
-                resonance: {
-                  ...sensorData.resonance,
-                  propeller: 80,
-                  engine: 120,
-                  hull: 60
-                },
-                timestamp: Date.now(),
-                sonar: {
-                  ...sensorData.sonar,
-                  fishDetected: false,
-                  fishDepth: null,
-                  fishSize: null
-                }
-              });
-            }}
-                >
-            Inject Test Data
+              </div>
+              <div className="ai-status-compact">
+                <div className="ai-stat-compact">
+                  <span className="ai-stat-label">BASELINE</span>
+                  <span className={`ai-stat-value ${aiStatus?.baselineCalibrated ? 'active' : 'inactive'}`}>
+                    {aiStatus?.baselineCalibrated ? '✓' : '⋯'}
+                  </span>
+                </div>
+                <div className="ai-stat-compact">
+                  <span className="ai-stat-label">SAMPLES</span>
+                  <span className="ai-stat-value active">{aiStatus?.samplesCollected || 0}</span>
+                </div>
+                <div className="ai-stat-compact">
+                  <span className="ai-stat-label">ANOMALIES</span>
+                  <span className={`ai-stat-value ${anomalies.length > 0 ? 'warning' : 'active'}`}>
+                    {anomalies.length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="panel panel-small">
+              <div className="panel-header">
+                <h2>NAVIGATION</h2>
+                <button className="expand-btn" onClick={() => handleExpandPanel('NAVIGATION', renderNavigationContent())}>
+                  ⛶
                 </button>
               </div>
-            </div>
-            <div className="gauge-group gauge-group-six">
-              {/* Row 1: RPM, Fuel Flow, Coolant Temp */}
-            <div className="gauge">
-              <svg viewBox="0 0 200 120" className="gauge-svg">
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#00d4ff" strokeWidth="20" strokeDasharray={`${(sensorData.engine.rpm / 3000) * 251} 251`} className="gauge-progress" />
-                <text x="100" y="80" textAnchor="middle" className="gauge-value">{Math.round(sensorData.engine.rpm)}</text>
-                <text x="100" y="100" textAnchor="middle" className="gauge-label">RPM</text>
-              </svg>
-            </div>
-            <div className="gauge">
-              <svg viewBox="0 0 200 120" className="gauge-svg">
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#00ff88" strokeWidth="20" strokeDasharray={`${(sensorData.fuel.consumptionRate / 5) * 251} 251`} className="gauge-progress" />
-                <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.fuel.consumptionRate.toFixed(1)}</text>
-                <text x="100" y="100" textAnchor="middle" className="gauge-label">FUEL L/H</text>
-              </svg>
-            </div>
-            <div className="gauge">
-              <svg viewBox="0 0 200 120" className="gauge-svg">
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={getStatusColor(sensorData.engine.temperature, 60, 110, true)} strokeWidth="20" strokeDasharray={`${((sensorData.engine.temperature - 60) / 50) * 251} 251`} className="gauge-progress" />
-                <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.engine.temperature.toFixed(1)}</text>
-                <text x="100" y="100" textAnchor="middle" className="gauge-label">COOLANT</text>
-              </svg>
-            </div>
-            {/* Row 2: Oil Pressure, Battery, Run Hours */}
-            <div className="gauge">
-              <svg viewBox="0 0 200 120" className="gauge-svg">
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={getStatusColor(sensorData.engine.oilPressure, 20, 60)} strokeWidth="20" strokeDasharray={`${(sensorData.engine.oilPressure / 60) * 251} 251`} className="gauge-progress" />
-                <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.engine.oilPressure.toFixed(1)}</text>
-                <text x="100" y="100" textAnchor="middle" className="gauge-label">OIL PSI</text>
-              </svg>
-            </div>
-            <div className="gauge">
-              <svg viewBox="0 0 200 120" className="gauge-svg">
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={getStatusColor(sensorData.electrical.batteryVoltage, 12, 15)} strokeWidth="20" strokeDasharray={`${((sensorData.electrical.batteryVoltage - 12) / 3) * 251} 251`} className="gauge-progress" />
-                <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.electrical.batteryVoltage.toFixed(1)}</text>
-                <text x="100" y="100" textAnchor="middle" className="gauge-label">BATTERY V</text>
-              </svg>
-            </div>
-            <div className="gauge">
-              <svg viewBox="0 0 200 120" className="gauge-svg">
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1a1f3a" strokeWidth="20" />
-                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#00d4ff" strokeWidth="20" strokeDasharray="251 251" className="gauge-progress" />
-                <text x="100" y="80" textAnchor="middle" className="gauge-value">{sensorData.engine.runHours.toFixed(1)}</text>
-                <text x="100" y="100" textAnchor="middle" className="gauge-label">RUN HOURS</text>
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Smaller Panels - Reordered */}
-        <div className="panel panel-small panel-ai">
-          <div className="panel-header">
-            <h2>AI STATUS</h2>
-            <button className="expand-btn" onClick={() => handleExpandPanel('AI DIAGNOSTICS', renderAIContent())}>
-              ⛶
-            </button>
-          </div>
-          <div className="ai-status-compact">
-            <div className="ai-stat-compact">
-              <span className="ai-stat-label">BASELINE</span>
-              <span className={`ai-stat-value ${aiStatus?.baselineCalibrated ? 'active' : 'inactive'}`}>
-                {aiStatus?.baselineCalibrated ? '✓' : '⋯'}
-              </span>
-            </div>
-            <div className="ai-stat-compact">
-              <span className="ai-stat-label">SAMPLES</span>
-              <span className="ai-stat-value active">{aiStatus?.samplesCollected || 0}</span>
-            </div>
-            <div className="ai-stat-compact">
-              <span className="ai-stat-label">ANOMALIES</span>
-              <span className={`ai-stat-value ${anomalies.length > 0 ? 'warning' : 'active'}`}>
-                {anomalies.length}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel panel-small">
-          <div className="panel-header">
-            <h2>NAVIGATION</h2>
-            <button className="expand-btn" onClick={() => handleExpandPanel('NAVIGATION', renderNavigationContent())}>
-              ⛶
-            </button>
-          </div>
-          <div className="nav-data compact">
-            <div className="data-row">
-              <span className="data-label">SPEED</span>
-              <span className="data-value">{sensorData.navigation.speed.toFixed(1)} kts</span>
-            </div>
-            <div className="data-row">
-              <span className="data-label">HEADING</span>
-              <span className="data-value">{Math.round(sensorData.navigation.heading)}°</span>
-            </div>
-            <div className="data-row">
-              <span className="data-label">DEPTH</span>
-              <span className="data-value">{sensorData.navigation.depth.toFixed(1)} m</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel panel-small">
-          <div className="panel-header">
-            <h2>RESONANCE</h2>
-            <button className="expand-btn" onClick={() => handleExpandPanel('RESONANCE ANALYSIS', renderResonanceContent())}>
-              ⛶
-            </button>
-          </div>
-          <div className="resonance-data compact">
-            <div className="resonance-item">
-              <span className="resonance-label">PROP</span>
-              <div className="resonance-bar">
-                <div className="resonance-value" style={{ width: `${(sensorData.resonance.propeller / 150) * 100}%` }}></div>
+              <div className="nav-data compact">
+                <div className="data-row">
+                  <span className="data-label">SPEED</span>
+                  <span className="data-value">{sensorData.navigation.speed.toFixed(1)} kts</span>
+                </div>
+                <div className="data-row">
+                  <span className="data-label">HEADING</span>
+                  <span className="data-value">{Math.round(sensorData.navigation.heading)}°</span>
+                </div>
+                <div className="data-row">
+                  <span className="data-label">DEPTH</span>
+                  <span className="data-value">{sensorData.navigation.depth.toFixed(1)} m</span>
+                </div>
               </div>
-              <span className="resonance-hz">{sensorData.resonance.propeller.toFixed(1)}</span>
             </div>
-            <div className="resonance-item">
-              <span className="resonance-label">ENGINE</span>
-              <div className="resonance-bar">
-                <div className="resonance-value" style={{ width: `${(sensorData.resonance.engine / 250) * 100}%` }}></div>
+
+            <div className="panel panel-small">
+              <div className="panel-header">
+                <h2>RESONANCE</h2>
+                <button className="expand-btn" onClick={() => handleExpandPanel('RESONANCE ANALYSIS', renderResonanceContent())}>
+                  ⛶
+                </button>
               </div>
-              <span className="resonance-hz">{sensorData.resonance.engine.toFixed(1)}</span>
+              <div className="resonance-data compact">
+                <div className="resonance-item">
+                  <span className="resonance-label">PROP</span>
+                  <div className="resonance-bar">
+                    <div className="resonance-value" style={{ width: `${(sensorData.resonance.propeller / 150) * 100}%` }}></div>
+                  </div>
+                  <span className="resonance-hz">{sensorData.resonance.propeller.toFixed(1)}</span>
+                </div>
+                <div className="resonance-item">
+                  <span className="resonance-label">ENGINE</span>
+                  <div className="resonance-bar">
+                    <div className="resonance-value" style={{ width: `${(sensorData.resonance.engine / 250) * 100}%` }}></div>
+                  </div>
+                  <span className="resonance-hz">{sensorData.resonance.engine.toFixed(1)}</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
           </div>
         )}
@@ -394,7 +408,7 @@ function App() {
             <div className="assistant-content">
               <ChatWindow
                 isOpen={true}
-                onClose={() => {}}
+                onClose={() => { }}
                 sensorData={sensorData}
                 anomalies={anomalies}
                 embedded={true}
@@ -488,7 +502,7 @@ function App() {
         <div className="data-row"><span className="data-label">SPEED</span><span className="data-value">{sensorData.navigation.speed.toFixed(1)} kts</span></div>
         <div className="data-row"><span className="data-label">HEADING</span><span className="data-value">{Math.round(sensorData.navigation.heading)}°</span></div>
         <div className="data-row"><span className="data-label">DEPTH</span><span className="data-value">{sensorData.navigation.depth.toFixed(1)} m</span></div>
-        <div className="data-row"><span className="data-label">POSITION</span><span className="data-value gps">{sensorData.navigation.gps.latitude.toFixed(4)}°N<br/>{Math.abs(sensorData.navigation.gps.longitude).toFixed(4)}°W</span></div>
+        <div className="data-row"><span className="data-label">POSITION</span><span className="data-value gps">{sensorData.navigation.gps.latitude.toFixed(4)}°N<br />{Math.abs(sensorData.navigation.gps.longitude).toFixed(4)}°W</span></div>
       </div>
     );
   }
