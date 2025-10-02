@@ -13,7 +13,8 @@ function VideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
-  const [videoMode, setVideoMode] = useState('default'); // 'default' or 'annotated'
+  const [videoMode, setVideoMode] = useState('default'); // 'default' -> 'annotated' -> 'loop'
+  const [playbackStage, setPlaybackStage] = useState(0); // 0: first default, 1: annotated, 2: loop default
   const videoRef = useRef(null);
   const annotatedVideoRef = useRef(null);
 
@@ -27,12 +28,74 @@ function VideoPlayer({
   };
 
   const handleClose = () => {
+    // Reset playback stage when closing
+    setPlaybackStage(0);
+    setVideoMode('default');
     if (onClose) {
       onClose();
     } else {
       setIsPlaying(false);
     }
   };
+
+  const handleDefaultVideoEnd = () => {
+    console.log('Default video ended, playback stage:', playbackStage);
+    if (playbackStage === 0) {
+      // First play of out.mp4 ended, switch to annotated
+      console.log('Switching to annotated video');
+      setPlaybackStage(1);
+      setVideoMode('annotated');
+    }
+    // If playbackStage is 2, video will loop naturally
+  };
+
+  const handleAnnotatedVideoEnd = () => {
+    console.log('Annotated video ended, switching back to looping default');
+    // Annotated video ended, go back to default and loop
+    setPlaybackStage(2);
+    setVideoMode('default');
+  };
+
+  // Handle modal opening - start the first video
+  React.useEffect(() => {
+    if (isOpen && videoRef.current && playbackStage === 0 && videoMode === 'default') {
+      console.log('Modal opened, starting initial video playback');
+      setTimeout(() => {
+        videoRef.current.play().catch(err => console.log('Initial play error:', err));
+      }, 200);
+    }
+  }, [isOpen]);
+
+  // Handle video playback when mode changes
+  React.useEffect(() => {
+    if (videoMode === 'default' && videoRef.current && playbackStage > 0) {
+      console.log('Switching to default video, stage:', playbackStage);
+      const video = videoRef.current;
+      setTimeout(() => {
+        video.load();
+        video.play().catch(err => {
+          console.log('Play error on default video:', err);
+          console.log('Default video src:', video.src);
+        });
+      }, 100);
+    } else if (videoMode === 'annotated' && annotatedVideoRef.current) {
+      console.log('Switching to annotated video');
+      const video = annotatedVideoRef.current;
+      console.log('Annotated video src:', video.src);
+      setTimeout(() => {
+        video.load();
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.log('Play error on annotated video:', err);
+            console.log('Video readyState:', video.readyState);
+            console.log('Video networkState:', video.networkState);
+            console.log('Video error:', video.error);
+          });
+        }
+      }, 100);
+    }
+  }, [videoMode]);
 
   const handleVideoClick = (e) => {
     e.stopPropagation();
@@ -57,6 +120,7 @@ function VideoPlayer({
     }
   };
 
+
   // Mock bounding boxes - replace with real ML model output
   const boundingBoxes = showBoundingBoxes ? [
     { x: 45, y: 30, width: 15, height: 20, confidence: 0.92, label: 'Fish' },
@@ -72,8 +136,10 @@ function VideoPlayer({
           ref={videoRef}
           src={videoUrl}
           controls
-          autoPlay
-          loop
+          playsInline
+          preload="auto"
+          loop={playbackStage === 2}
+          onEnded={handleDefaultVideoEnd}
           className={`sonar-video-embedded ${videoMode === 'default' ? 'active' : 'inactive'}`}
         >
           Your browser does not support video playback.
@@ -84,8 +150,9 @@ function VideoPlayer({
           ref={annotatedVideoRef}
           src={annotatedVideoUrl}
           controls
-          autoPlay
-          loop
+          playsInline
+          preload="auto"
+          onEnded={handleAnnotatedVideoEnd}
           className={`sonar-video-embedded annotated ${videoMode === 'annotated' ? 'active' : 'inactive'}`}
         >
           Your browser does not support video playback.
@@ -156,8 +223,10 @@ function VideoPlayer({
                 ref={videoRef}
                 src={videoUrl}
                 controls
-                autoPlay
-                loop
+                playsInline
+                preload="auto"
+                loop={playbackStage === 2}
+                onEnded={handleDefaultVideoEnd}
                 className={`sonar-video ${videoMode === 'default' ? 'active' : 'inactive'}`}
               >
                 Your browser does not support video playback.
@@ -168,8 +237,9 @@ function VideoPlayer({
                 ref={annotatedVideoRef}
                 src={annotatedVideoUrl}
                 controls
-                autoPlay
-                loop
+                playsInline
+                preload="auto"
+                onEnded={handleAnnotatedVideoEnd}
                 className={`sonar-video annotated ${videoMode === 'annotated' ? 'active' : 'inactive'}`}
               >
                 Your browser does not support video playback.

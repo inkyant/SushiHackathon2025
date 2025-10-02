@@ -105,6 +105,7 @@ function App() {
     if (now - sonarLastClickTime > 1000) {
       setSonarClickCount(1);
       setSonarLastClickTime(now);
+      console.log('Click 1/3');
       return;
     }
 
@@ -112,11 +113,25 @@ function App() {
     const newCount = sonarClickCount + 1;
     setSonarClickCount(newCount);
     setSonarLastClickTime(now);
+    console.log(`Click ${newCount}/3`);
 
-    // Show video after 3 clicks
+    // Show video after 3 clicks with delays
     if (newCount >= 3) {
-      setSonarVideoOpen(true);
       setSonarClickCount(0); // Reset counter
+      console.log('Triple click detected! Starting sequence...');
+
+      // Wait 3 seconds, then show fish alert
+      setTimeout(() => {
+        console.log('Showing fish alert');
+        setFishAlert(true);
+
+        // Wait 2 more seconds, then hide alert and show video
+        setTimeout(() => {
+          console.log('Hiding alert, showing video');
+          setFishAlert(false);
+          setSonarVideoOpen(true);
+        }, 2000);
+      }, 3000);
     }
   };
 
@@ -127,17 +142,13 @@ function App() {
       {/* Header */}
       <header className="header">
         <div className="header-left">
-          <h1>⚓ VESSEL CONTROL SYSTEM</h1>
+          <h1 onClick={handleSonarClick} style={{ cursor: 'default', userSelect: 'none' }}>⚓ VESSEL CONTROL SYSTEM</h1>
           <div className="ai-badge">
             <span className="ai-indicator"></span>
             AI MONITORING ACTIVE
           </div>
         </div>
         <div className="header-right">
-          <div className="status-indicator">
-            <span className={`status-dot ${connected ? 'online' : 'offline'}`}></span>
-            {connected ? 'ONLINE' : 'OFFLINE'}
-          </div>
           <div className="timestamp">
             {new Date(sensorData.timestamp || Date.now()).toLocaleTimeString()}
           </div>
@@ -394,7 +405,7 @@ function App() {
 
         {/* Sonar View */}
         {currentView === 'sonar' && (
-          <div className="sonar-view" onClick={handleSonarClick}>
+          <div className="sonar-view">
             <VideoPlayer
               embedded={true}
               showBoundingBoxes={false}
