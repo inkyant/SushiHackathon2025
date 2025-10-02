@@ -501,7 +501,7 @@ function App() {
       <VideoPlayer
         isOpen={sonarVideoOpen}
         onClose={() => setSonarVideoOpen(false)}
-        showBoundingBoxes={true}
+        showBoundingBoxes={false}
       />
 
       {/* Panel Expander */}
