@@ -193,8 +193,7 @@ function App() {
                 </button>
                 {/* Test Data Button */}
                 <button
-            className="test-data-btn"
-            style={{ marginLeft: '8px', padding: '4px 10px', fontSize: '0.95em' }}
+            className="demo-trigger-btn"
             onClick={() => {
               setSensorData({
                 ...sensorData,

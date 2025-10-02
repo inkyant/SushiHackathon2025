@@ -773,6 +773,20 @@
   background: rgba(0, 212, 255, 0.3);
 }
 
+/* Match header action sizing */
+.panel-header .demo-trigger-btn {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 8px 12px;
+}
+
+/* Improve spacing for header actions */
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* Footer */
 .footer {
   display: none;
@@ -862,6 +876,31 @@
   .panel:hover {
     border-color: rgba(0, 212, 255, 0.5);
     box-shadow: 0 0 30px rgba(0, 212, 255, 0.1);
+  }
+}
+
+/* Ultra-wide Layout (min-width: 1440px) */
+@media (min-width: 1440px) {
+  .App {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
+
+  .panel-sonar {
+    grid-column: span 4;
+  }
+
+  .panel-engine {
+    grid-column: span 2;
+  }
+
+  .panel-maintenance {
+    grid-column: span 2;
   }
 }
 
