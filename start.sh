@@ -57,14 +57,17 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Start Flask LLM backend
-echo "🧠 Starting Flask LLM backend on http://localhost:5000"
+
+npm run dev &
+NPM_PID=$!
+
 python -u ./llm_backbone/server.py &
+PYTHON1_PID=$!
 
-# Start maintenance model helper (optional)
-echo "🔧 Starting maintenance model helper"
 python -u ./maintainance_model/run_maintainance.py &
+PYTHON2_PID=$!
 
-# Start the Node server and React client concurrently
-echo "🌐 Starting Node API/WebSocket server and React client"
-npm run dev
+trap "kill $NPM_PID $PYTHON1_PID $PYTHON2_PID" EXIT
+
+
+wait
