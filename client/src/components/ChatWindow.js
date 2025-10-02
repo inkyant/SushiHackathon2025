@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './ChatWindow.css';
 
 function ChatWindow({ isOpen, onClose, sensorData, anomalies, embedded = false }) {
-  const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
+  const API_BASE = process.env.REACT_APP_API_BASE ?? '';
   const [messages, setMessages] = useState([
     {
       role: 'assistant',

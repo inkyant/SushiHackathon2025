@@ -48,5 +48,14 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Start the server and client concurrently
-npm run dev & python ./maintainance_model/run_maintainance.py
+# Start Flask LLM backend
+echo "🧠 Starting Flask LLM backend on http://localhost:5000"
+python -u ./llm_backbone/server.py &
+
+# Start maintenance model helper (optional)
+echo "🔧 Starting maintenance model helper"
+python -u ./maintainance_model/run_maintainance.py &
+
+# Start the Node server and React client concurrently
+echo "🌐 Starting Node API/WebSocket server and React client"
+npm run dev

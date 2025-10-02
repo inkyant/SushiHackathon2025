@@ -17,6 +17,54 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'client/build')));
 
+// Simple reverse proxy to Flask LLM backend (default localhost:5000)
+const FLASK_HOST = process.env.FLASK_HOST || 'localhost';
+const FLASK_PORT = Number(process.env.FLASK_PORT || 5000);
+
+function forwardToFlask(req, res, targetPath) {
+  try {
+    const payload = req.method === 'GET' ? null : JSON.stringify(req.body || {});
+    const options = {
+      hostname: FLASK_HOST,
+      port: FLASK_PORT,
+      path: targetPath,
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {}),
+      },
+    };
+
+    const proxyReq = http.request(options, (proxyRes) => {
+      const chunks = [];
+      proxyRes.on('data', (chunk) => chunks.push(chunk));
+      proxyRes.on('end', () => {
+        const body = Buffer.concat(chunks);
+        res.status(proxyRes.statusCode || 502);
+        // Try to preserve JSON; fall back to raw
+        const contentType = proxyRes.headers['content-type'] || 'application/json';
+        res.setHeader('Content-Type', contentType);
+        res.send(body);
+      });
+    });
+
+    proxyReq.on('error', (err) => {
+      res.status(503).json({ error: 'LLM backend unavailable', details: err.message });
+    });
+
+    if (payload) {
+      proxyReq.write(payload);
+    }
+    proxyReq.end();
+  } catch (e) {
+    res.status(500).json({ error: 'Proxy failure', details: e.message });
+  }
+}
+
+// Expose Flask endpoints via same-origin for the client
+app.post('/mm_infer', (req, res) => forwardToFlask(req, res, '/mm_infer'));
+app.get('/health', (req, res) => forwardToFlask(req, res, '/health'));
+
 // Serve video files from root directory
 app.use('/out.mp4', express.static(path.join(__dirname, 'out.mp4')));
 app.use('/out_annotated.mp4', express.static(path.join(__dirname, 'out_annotated.mp4')));
