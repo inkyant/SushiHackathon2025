@@ -12,22 +12,46 @@ multi-modal AR output.
 """
 
 import torch
-from transformers import AutoModelForImageTextToText, AutoProcessor
+from transformers import AutoProcessor
+from transformers import Gemma3ForConditionalGeneration
+from typing import Any, Optional
+from PIL import Image
 
 
 class LLMBackbone:
     def __init__(self, model_name=None):
-        # Load the Qwen-VL model and processor
+        # Load a text-only instruction model (default: google/gemma-3-4b-it)
         import os
 
-        selected = model_name or os.getenv(
-            "LLM_MODEL_NAME", "Qwen/Qwen2-VL-7B-Instruct"
+        selected = model_name or os.getenv("LLM_MODEL_NAME", "google/gemma-3-4b-it")
+        self.selected_model_name = selected
+
+        # Hugging Face auth via env token
+        hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN")
+        if hf_token:
+            try:
+                # Best effort: log in for this process so downstream hub calls work
+                from huggingface_hub import login as hf_login
+
+                hf_login(token=hf_token, add_to_git_credential=False)
+            except Exception:
+                pass
+            # Also expose to subprocess/lib calls
+            os.environ.setdefault("HUGGING_FACE_HUB_TOKEN", hf_token)
+
+        self.hf_token = hf_token
+        # Load Gemma-3 vision model and processor
+        self.model = Gemma3ForConditionalGeneration.from_pretrained(
+            self.selected_model_name,
+            device_map="auto",
+            token=self.hf_token,
+        ).eval()
+        self.processor = AutoProcessor.from_pretrained(
+            self.selected_model_name,
+            token=self.hf_token,
         )
-        self.model = AutoModelForImageTextToText.from_pretrained(
-            selected, dtype="auto", device_map="auto"
-        )
-        self.processor = AutoProcessor.from_pretrained(selected)
         self.system_prompt = self._load_system_prompt()
+        self.vision_capable = True
 
     def _load_system_prompt(self):
         try:
@@ -70,6 +94,72 @@ class LLMBackbone:
             messages = [{"role": "user", "content": content}]
         return messages
 
+    def _load_image(self, image: Any) -> Any:
+        """Text-only model: keep image reference as-is for prompt context."""
+        return image
+
+    def _has_sentencepiece(self) -> bool:
+        try:
+            import sentencepiece  # type: ignore
+
+            return True
+        except Exception:
+            return False
+
+    def _load_tokenizer_with_strategies(self, model_name: str, token: Optional[str]):
+        try:
+            return AutoTokenizer.from_pretrained(model_name, token=token)
+        except Exception:
+            pass
+        try:
+            return AutoTokenizer.from_pretrained(
+                model_name, trust_remote_code=True, token=token
+            )
+        except Exception:
+            pass
+        try:
+            return AutoTokenizer.from_pretrained(
+                model_name, trust_remote_code=True, use_fast=False, token=token
+            )
+        except Exception:
+            return None
+
+    def _select_tokenizer_and_model(self, preferred_model: str, token: Optional[str]):
+        candidates = []
+        if self._has_sentencepiece():
+            candidates.extend(
+                [preferred_model, "google/gemma-2-2b-it", "google/gemma-2-9b-it"]
+            )
+        # Always include non-sentencepiece fallbacks
+        candidates.extend(["mistralai/Mistral-7B-Instruct-v0.2", "gpt2"])
+        seen = set()
+        deduped = []
+        for c in candidates:
+            if c not in seen:
+                deduped.append(c)
+                seen.add(c)
+        for name in deduped:
+            tok = self._load_tokenizer_with_strategies(name, token)
+            if tok is not None:
+                return tok, name
+        raise ValueError(
+            "Failed to load any compatible tokenizer. Install `pip install -U transformers sentencepiece` or set LLM_MODEL_NAME to a supported model."
+        )
+
+    def _build_prompt(self, image=None, text=None, pred_context=None) -> str:
+        parts = []
+        if self.system_prompt:
+            parts.append(self.system_prompt.strip())
+        if pred_context:
+            parts.append(f"Context:\n{pred_context}")
+        if image:
+            parts.append(f"[Image reference: {image}]")
+        user = (
+            text or "Provide a concise sonar interpretation and engine health summary."
+        )
+        parts.append(f"User:\n{user}")
+        return "\n\n".join(parts).strip()
+
     def infer(self, image=None, text=None, pred_context=None, max_new_tokens=512):
         """
         Run inference on the Qwen-VL model.
@@ -78,28 +168,29 @@ class LLMBackbone:
         pred_context: predicted context from the maintainance model and location/time/etc for sonar pred.
         Returns: output text (list of strings, one per input)
         """
+        # Gemma-3 vision generation using processor chat template
         messages = self.build_messages(
             image=image, text=text, pred_context=pred_context
         )
         inputs = self.processor.apply_chat_template(
             messages,
-            tokenize=True,
             add_generation_prompt=True,
+            tokenize=True,
             return_dict=True,
             return_tensors="pt",
-        )
-        inputs = inputs.to(self.model.device)
-        generated_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
-        generated_ids_trimmed = [
-            out_ids[len(in_ids) :]
-            for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-        ]
-        output_text = self.processor.batch_decode(
-            generated_ids_trimmed,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False,
-        )
-        return output_text
+        ).to(self.model.device, dtype=torch.bfloat16)
+
+        input_len = inputs["input_ids"].shape[-1]
+        with torch.inference_mode():
+            generation = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+            )
+            generation = generation[0][input_len:]
+
+        decoded = self.processor.decode(generation, skip_special_tokens=True)
+        return [decoded]
 
     # For compatibility with previous interface
     def forward(self, image=None, text=None, pred_context=None, max_new_tokens=512):
@@ -128,10 +219,8 @@ class LLMBackbone:
 # Example usage:
 if __name__ == "__main__":
     # Example image URL and prompt
-    image_url = (
-        "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-VL/assets/demo.jpeg"
-    )
-    prompt = "Describe this image."
+    image_url = "https://example.com/sonar.jpg"
+    prompt = "Summarize likely fish species and engine health."
     llm = LLMBackbone()
     result = llm.decode(image=image_url, text=prompt)
     print(result)
