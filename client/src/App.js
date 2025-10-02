@@ -5,18 +5,50 @@ import ChatWindow from './components/ChatWindow';
 import PanelExpander from './components/PanelExpander';
 
 function App() {
-  const [sensorData, setSensorData] = useState(null);
+  const [sensorData, setSensorData] = useState(() => ({
+    timestamp: Date.now(),
+    engine: {
+      temperature: 82,
+      rpm: 1200,
+      oilPressure: 45,
+      runHours: 1247.5,
+      status: 'normal'
+    },
+    fuel: {
+      level: 75,
+      consumptionRate: 2.5
+    },
+    electrical: {
+      batteryVoltage: 13.8,
+      amperage: 15
+    },
+    navigation: {
+      depth: 45,
+      speed: 0,
+      heading: 0,
+      gps: { latitude: 37.7749, longitude: -122.4194 }
+    },
+    sonar: {
+      fishDetected: false,
+      fishDepth: null,
+      fishSize: null,
+      bottomHardness: 50
+    },
+    resonance: {
+      propeller: 120,
+      hull: 60,
+      engine: 200
+    }
+  }));
   const [anomalies, setAnomalies] = useState([]);
-  const [aiStatus, setAiStatus] = useState(null);
+  const [aiStatus, setAiStatus] = useState({ monitoring: false, samplesCollected: 0, baselineCalibrated: false });
   const [connected, setConnected] = useState(false);
   const [fishAlert, setFishAlert] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState(null);
   const [currentView, setCurrentView] = useState('engine'); // 'engine' or 'assistant'
   const [sonarVideoOpen, setSonarVideoOpen] = useState(false);
   const [sonarClickCount, setSonarClickCount] = useState(0);
   const [sonarLastClickTime, setSonarLastClickTime] = useState(0);
-  const [showSonarVideo, setShowSonarVideo] = useState(false);
 
   useEffect(() => {
     const ws = new WebSocket('ws://localhost:3001');
@@ -27,17 +59,19 @@ function App() {
     };
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      // setSensorData(data.sensorData);
-      // setAnomalies(data.anomalies);
-      // setAiStatus(data.aiStatus);
+      try {
+        const data = JSON.parse(event.data);
+        if (data.sensorData) setSensorData(data.sensorData);
+        if (Array.isArray(data.anomalies)) setAnomalies(data.anomalies);
+        if (data.aiStatus) setAiStatus(data.aiStatus);
 
-      // Fish alert - auto-open sonar video
-      // if (data.sensorData.sonar.fishDetected) {
-      //   setFishAlert(true);
-      //   setSonarVideoOpen(true);
-      //   setTimeout(() => setFishAlert(false), 3000);
-      // }
+        if (data.sensorData?.sonar?.fishDetected) {
+          setFishAlert(true);
+          setTimeout(() => setFishAlert(false), 3000);
+        }
+      } catch (err) {
+        console.warn('Failed to parse WS message', err);
+      }
     };
 
     ws.onclose = () => {
@@ -81,20 +115,12 @@ function App() {
 
     // Show video after 3 clicks
     if (newCount >= 3) {
-      setShowSonarVideo(true);
+      setSonarVideoOpen(true);
       setSonarClickCount(0); // Reset counter
     }
   };
 
-  if (!sensorData) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-spinner"></div>
-        <h2>INITIALIZING SYSTEMS</h2>
-        <p>{connected ? 'Calibrating sensors...' : 'Connecting to vessel...'}</p>
-      </div>
-    );
-  }
+  // Always render UI with initial mock, live data will stream via WS
 
   return (
     <div className="App">
@@ -113,7 +139,7 @@ function App() {
             {connected ? 'ONLINE' : 'OFFLINE'}
           </div>
           <div className="timestamp">
-            {new Date(sensorData.timestamp).toLocaleTimeString()}
+            {new Date(sensorData.timestamp || Date.now()).toLocaleTimeString()}
           </div>
         </div>
       </header>
@@ -355,7 +381,7 @@ function App() {
 
         {/* Sonar View */}
         {currentView === 'sonar' && (
-          <div className="sonar-view">
+          <div className="sonar-view" onClick={handleSonarClick}>
             <VideoPlayer
               embedded={true}
               showBoundingBoxes={false}

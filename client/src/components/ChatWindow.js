@@ -49,11 +49,21 @@ function ChatWindow({ isOpen, onClose, sensorData, anomalies, embedded = false }
         })
       });
 
-      const data = await response.json();
+      let contentText = 'Backend model integration pending. This is a placeholder response.';
+      try {
+        const data = await response.json();
+        contentText = data.response || contentText;
+      } catch (e) {
+        // ignore JSON parse errors; keep contentText default
+      }
+
+      if (!response.ok) {
+        contentText = `The assistant is temporarily unavailable (${response.status}). I will respond once the backend is online.`;
+      }
 
       const assistantMessage = {
         role: 'assistant',
-        content: data.response || 'Backend model integration pending. This is a placeholder response.',
+        content: contentText,
         timestamp: Date.now()
       };
 
@@ -72,7 +82,7 @@ function ChatWindow({ isOpen, onClose, sensorData, anomalies, embedded = false }
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -139,7 +149,7 @@ function ChatWindow({ isOpen, onClose, sensorData, anomalies, embedded = false }
             placeholder="Ask about maintenance, diagnostics, or sensor readings..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             rows="2"
           />
           <button

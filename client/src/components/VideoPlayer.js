@@ -3,6 +3,7 @@ import './VideoPlayer.css';
 
 function VideoPlayer({
   videoUrl = '/out.mp4',
+  annotatedVideoUrl = '/out_annotated.mp4',
   thumbnail = null,
   isOpen = false,
   onClose = null,
@@ -69,7 +70,7 @@ function VideoPlayer({
         {/* Default Video */}
         <video
           ref={videoRef}
-          src="/out.mp4"
+          src={videoUrl}
           controls
           autoPlay
           loop
@@ -81,7 +82,7 @@ function VideoPlayer({
         {/* Annotated Video */}
         <video
           ref={annotatedVideoRef}
-          src="/out_annotated.mp4"
+          src={annotatedVideoUrl}
           controls
           autoPlay
           loop
@@ -153,7 +154,7 @@ function VideoPlayer({
               {/* Default Video */}
               <video
                 ref={videoRef}
-                src="/out.mp4"
+                src={videoUrl}
                 controls
                 autoPlay
                 loop
@@ -165,7 +166,7 @@ function VideoPlayer({
               {/* Annotated Video */}
               <video
                 ref={annotatedVideoRef}
-                src="/out_annotated.mp4"
+                src={annotatedVideoUrl}
                 controls
                 autoPlay
                 loop

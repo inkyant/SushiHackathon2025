@@ -10,7 +10,6 @@ with a clean API facing the frontend.
 """
 
 from flask import Flask, request, jsonify
-from llm import LLMBackbone
 from importlib import import_module
 import json
 import os
@@ -37,7 +36,21 @@ except Exception:
     get_engine_fault = None
 
 app = Flask(__name__)
-llm = LLMBackbone()
+
+# Select LLM provider based on environment
+# LLM_PROVIDER=openai or USE_OPENAI=1|true|yes selects OpenAI; otherwise defaults to custom llm.
+try:
+    provider = (os.getenv("LLM_PROVIDER") or os.getenv("LLM_BACKEND") or "").lower()
+    use_openai_env = os.getenv("USE_OPENAI", "").lower() in ("1", "true", "yes", "on")
+    if provider in ("openai", "openai_api", "openai-bridge") or use_openai_env:
+        from openai_bridge import LLMBackbone as SelectedLLMBackbone  # type: ignore
+    else:
+        from llm import LLMBackbone as SelectedLLMBackbone  # type: ignore
+except Exception:
+    # Fallback to custom llm if selection fails
+    from llm import LLMBackbone as SelectedLLMBackbone  # type: ignore
+
+llm = SelectedLLMBackbone()
 
 
 @app.route("/infer", methods=["POST"])
