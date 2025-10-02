@@ -3,30 +3,49 @@ import torch
 from torch.nn import Softmax
 from model import MaintananceNN
 
-model = MaintananceNN()
-sm = Softmax(dim=0)
+# Define your class labels in the order your model outputs them
+CLASS_LABELS = [
+    "No Issue",
+    "Engine RPM too low",
+    "Engine RPM too high",
+    "Lub oil pressure too low",
+    "Lub oil pressure too high",
+    "Fuel pressure too low",
+    "Fuel pressure too high",
+    "Coolant pressure too low",
+    "Coolant pressure too high",
+    "Lub oil temp abnormal",
+    "Coolant temp abnormal"
+]
 
-model.load_state_dict(torch.load("multiclass_model.pt", weights_only=True))
+def load_model(model_path="multiclass_model.pt"):
+    model = MaintananceNN()
+    model.load_state_dict(torch.load(model_path, weights_only=True))
+    model.eval()
+    return model
 
-
-def getEngineFault(engine_stats):
-    '''These are the inputs:
-    'Engine rpm'
-    'Lube oil pressure'
-    'Fuel pressure'
-    'Coolant pressure'
-    'lub oil temp'
-    'Coolant temp'
-    And the output is a probability vector, ordered 'No Issue', 'Engine RPM too low', 'Engine RPM too high', so on
-    '''
-    return sm(model(torch.tensor(engine_stats))).detach().numpy()
+def get_engine_fault(engine_stats, model=None):
+    """
+    Given engine_stats (list or array of 6 floats), returns (label, confidence, all_probs)
+    """
+    if model is None:
+        model = load_model()
+    sm = Softmax(dim=0)
+    x = torch.tensor(engine_stats, dtype=torch.float32)
+    with torch.no_grad():
+        logits = model(x)
+        probs = sm(logits)
+        probs_np = probs.detach().cpu().numpy()
+        idx = probs.argmax().item()
+        label = CLASS_LABELS[idx]
+        confidence = probs_np[idx]
+    return label, confidence, probs_np
 
 if __name__ == "__main__":
-    # Engine rpm, Lub oil pressure, Fuel pressure, Coolant pressure, lub oil temp, Coolant temp
-    # d = [791.23, 3.30, 4.65, 2.33, 77.64, 78.42]
-    d = [791.23, 3.30, 4.65, 2.33, 77.64, 78.42]
-    print(model(torch.tensor(d)))
-
-    print(getEngineFault(d))
-    
-    print(torch.argmax(model(torch.tensor(d))).item())
+    # Example input: Engine rpm, Lub oil pressure, Fuel pressure, Coolant pressure, lub oil temp, Coolant temp
+    d = [791.23, 3.30, 4.65, 2.33, 77.64, -78.42]
+    model = load_model()
+    label, confidence, probs = get_engine_fault(d, model)
+    print(f"Predicted fault: {label}")
+    print(f"Confidence: {confidence:.3f}")
+    print(f"All probabilities: {probs}")
